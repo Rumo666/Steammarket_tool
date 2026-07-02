@@ -1,4 +1,4 @@
-# Tool_V4.py
+# Tool_V5.py
 # pip install requests pandas pillow
 
 import tkinter as tk
@@ -13,7 +13,7 @@ import sqlite3
 from urllib.parse import quote
 from PIL import Image, ImageTk
 from io import BytesIO
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, CancelledError
 
 
 # ============================================================
@@ -34,21 +34,19 @@ DB_FILE = "steam_inventory.db"
 CURRENCY = 3
 COUNTRY = "DE"
 
-REQUEST_TIMEOUT = 8
+REQUEST_TIMEOUT = 10
 MAX_PRICE_WORKERS = 4
 
 ICON_SIZE = 56
 DETAIL_SIZE = 320
 HOVER_SIZE = 260
 
-# Wichtig:
-# Tabellenbilder bleiben aus, damit die GUI nicht einfriert.
-# Detail- und Hover-Bilder bleiben aktiv.
 SHOW_TABLE_ICONS = False
+DEBUG_PRICES = True
 
 
 # ============================================================
-# Hilfsfunktionen
+# Datenbank
 # ============================================================
 
 def db():
@@ -67,8 +65,7 @@ def db():
             amount INTEGER,
             marketable INTEGER,
             tradable INTEGER,
-            last_scan REAL,
-            UNIQUE(appid, item_name)
+            last_scan REAL
         )
     """)
 
@@ -83,8 +80,7 @@ def db():
             buy_count TEXT,
             price_number REAL,
             source TEXT,
-            last_update REAL,
-            UNIQUE(appid, item_name)
+            last_update REAL
         )
     """)
 
@@ -115,16 +111,21 @@ def db():
 
 
 def ensure_column(con, table, column, definition):
-    cur = con.execute(f"PRAGMA table_info({table})")
-    cols = [r[1] for r in cur.fetchall()]
+    try:
+        cur = con.execute(f"PRAGMA table_info({table})")
+        cols = [r[1] for r in cur.fetchall()]
 
-    if column not in cols:
-        try:
+        if column not in cols:
             con.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
             con.commit()
-        except sqlite3.OperationalError:
-            pass
 
+    except sqlite3.OperationalError:
+        pass
+
+
+# ============================================================
+# Hilfsfunktionen
+# ============================================================
 
 def parse_price(text):
     if not text:
@@ -138,6 +139,7 @@ def parse_price(text):
     s = s.replace("EUR", "")
     s = s.replace("--", "")
     s = s.replace("&nbsp;", "")
+    s = s.replace("\xa0", "")
     s = s.replace(" ", "")
     s = s.strip()
 
@@ -165,6 +167,13 @@ def euro(value):
         return "Kein Preis"
 
 
+def euro_from_cents(cents):
+    try:
+        return euro(float(cents) / 100.0)
+    except Exception:
+        return "Kein Preis"
+
+
 def market_link(appid, item):
     return f"https://steamcommunity.com/market/listings/{appid}/{quote(item, safe='')}"
 
@@ -188,22 +197,48 @@ def clean_int(value):
         return 0
 
 
-def request_headers(language="de"):
+def int_safe(value, default=0):
+    try:
+        if value is None:
+            return default
+        return int(value)
+    except Exception:
+        return default
+
+
+def request_headers(language="de", json_mode=False, referer=None):
     if language == "en":
         accept_language = "en-US,en;q=0.9,de;q=0.8"
     else:
         accept_language = "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7"
 
-    return {
+    headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) "
             "Gecko/20100101 Firefox/128.0"
         ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
-                  "application/json,text/plain,*/*;q=0.8",
         "Accept-Language": accept_language,
         "Connection": "close",
     }
+
+    if json_mode:
+        headers["Accept"] = "application/json,text/javascript,*/*;q=0.01"
+        headers["X-Requested-With"] = "XMLHttpRequest"
+    else:
+        headers["Accept"] = (
+            "text/html,application/xhtml+xml,application/xml;q=0.9,"
+            "application/json,text/plain,*/*;q=0.8"
+        )
+
+    if referer:
+        headers["Referer"] = referer
+
+    return headers
+
+
+def debug_price(item, source, price):
+    if DEBUG_PRICES:
+        print(f"[PREIS] {source:16} | {price:>10} | {item}")
 
 
 # ============================================================
@@ -211,6 +246,59 @@ def request_headers(language="de"):
 # ============================================================
 
 def get_inventory_all(appid, contextid, stop_checker=None):
+    """
+    Robuster Inventory-Scanner.
+    Versucht zuerst den neuen Steam-Endpunkt mit kleinerem count.
+    Falls Steam 400 liefert, wird automatisch reduziert.
+    Falls alles fehlschlägt, wird der alte /inventory/json/ Endpunkt genutzt.
+    """
+
+    count_options = [2000, 1000, 500]
+    last_error = None
+
+    for count_value in count_options:
+        try:
+            print(f"[SCAN] Versuche modernen Inventory-Endpunkt mit count={count_value}")
+
+            return get_inventory_all_modern(
+                appid,
+                contextid,
+                count_value,
+                stop_checker=stop_checker
+            )
+
+        except requests.exceptions.HTTPError as e:
+            last_error = e
+            response = getattr(e, "response", None)
+
+            if response is not None:
+                print(f"[SCAN] HTTP Fehler {response.status_code} bei count={count_value}")
+
+                if response.status_code == 400:
+                    continue
+
+            raise
+
+        except Exception as e:
+            last_error = e
+            print(f"[SCAN] Fehler bei count={count_value}: {e}")
+            continue
+
+    print("[SCAN] Nutze Legacy Inventory-Endpunkt als Fallback")
+
+    try:
+        return get_inventory_legacy_json(
+            appid,
+            contextid,
+            stop_checker=stop_checker
+        )
+    except Exception:
+        if last_error:
+            raise last_error
+        raise
+
+
+def get_inventory_all_modern(appid, contextid, count_value, stop_checker=None):
     all_assets = []
     all_descriptions = {}
 
@@ -224,7 +312,7 @@ def get_inventory_all(appid, contextid, stop_checker=None):
 
         params = {
             "l": "english",
-            "count": 5000,
+            "count": count_value,
         }
 
         if start_assetid:
@@ -236,6 +324,7 @@ def get_inventory_all(appid, contextid, stop_checker=None):
             headers=request_headers("en"),
             timeout=REQUEST_TIMEOUT
         )
+
         r.raise_for_status()
 
         data = r.json()
@@ -249,6 +338,8 @@ def get_inventory_all(appid, contextid, stop_checker=None):
             key = (str(desc.get("classid")), str(desc.get("instanceid")))
             all_descriptions[key] = desc
 
+        print(f"[SCAN] Assets bisher: {len(all_assets)} | Beschreibungen: {len(all_descriptions)}")
+
         if not data.get("more_items"):
             break
 
@@ -257,11 +348,81 @@ def get_inventory_all(appid, contextid, stop_checker=None):
         if not start_assetid:
             break
 
-        time.sleep(0.2)
+        time.sleep(0.15)
 
     return {
         "assets": all_assets,
         "descriptions": list(all_descriptions.values())
+    }
+
+
+def get_inventory_legacy_json(appid, contextid, stop_checker=None):
+    """
+    Alter Steam-Endpunkt als Fallback:
+    /profiles/<steamid>/inventory/json/<appid>/<contextid>
+    """
+
+    if stop_checker and stop_checker():
+        return {
+            "assets": [],
+            "descriptions": []
+        }
+
+    url = f"https://steamcommunity.com/profiles/{STEAM_ID}/inventory/json/{appid}/{contextid}"
+
+    params = {
+        "l": "english"
+    }
+
+    r = requests.get(
+        url,
+        params=params,
+        headers=request_headers("en"),
+        timeout=REQUEST_TIMEOUT
+    )
+
+    r.raise_for_status()
+
+    data = r.json()
+
+    if not data.get("success"):
+        raise Exception("Legacy Inventory-Endpunkt konnte das Inventory nicht laden.")
+
+    rg_inventory = data.get("rgInventory", {})
+    rg_descriptions = data.get("rgDescriptions", {})
+
+    assets = []
+    descriptions = []
+
+    for assetid, asset in rg_inventory.items():
+        asset_copy = dict(asset)
+
+        if "assetid" not in asset_copy:
+            asset_copy["assetid"] = assetid
+
+        if "id" in asset_copy and "assetid" not in asset_copy:
+            asset_copy["assetid"] = asset_copy["id"]
+
+        assets.append(asset_copy)
+
+    for key, desc in rg_descriptions.items():
+        desc_copy = dict(desc)
+
+        parts = key.split("_")
+
+        if "classid" not in desc_copy and len(parts) >= 1:
+            desc_copy["classid"] = parts[0]
+
+        if "instanceid" not in desc_copy and len(parts) >= 2:
+            desc_copy["instanceid"] = parts[1]
+
+        descriptions.append(desc_copy)
+
+    print(f"[SCAN] Legacy Assets: {len(assets)} | Beschreibungen: {len(descriptions)}")
+
+    return {
+        "assets": assets,
+        "descriptions": descriptions
     }
 
 
@@ -270,6 +431,11 @@ def get_inventory_all(appid, contextid, stop_checker=None):
 # ============================================================
 
 def get_priceoverview(appid, item_name):
+    """
+    Schneller Steam-Endpunkt.
+    Funktioniert nicht bei allen Items.
+    """
+
     try:
         url = "https://steamcommunity.com/market/priceoverview/"
 
@@ -282,7 +448,7 @@ def get_priceoverview(appid, item_name):
         r = requests.get(
             url,
             params=params,
-            headers=request_headers("de"),
+            headers=request_headers("de", json_mode=True),
             timeout=REQUEST_TIMEOUT
         )
 
@@ -305,6 +471,8 @@ def get_priceoverview(appid, item_name):
         if price_number <= 0:
             return None
 
+        debug_price(item_name, "priceoverview", price)
+
         return {
             "sell_price": price,
             "buy_order": "Nicht verfügbar",
@@ -314,15 +482,106 @@ def get_priceoverview(appid, item_name):
             "source": "priceoverview",
         }
 
-    except Exception:
+    except Exception as e:
+        if DEBUG_PRICES:
+            print(f"[PREIS] priceoverview Fehler bei {item_name}: {e}")
+        return None
+
+
+def get_render_price(appid, item_name):
+    """
+    Steam-Market-Render-Endpunkt.
+    Dieser liefert oft die aktuellen Listings als JSON.
+    Besonders wichtig für CS2/Dota/TF2.
+    """
+
+    try:
+        ref = market_link(appid, item_name)
+
+        url = ref + "/render/"
+
+        params = {
+            "query": "",
+            "start": 0,
+            "count": 10,
+            "country": COUNTRY,
+            "language": "german",
+            "currency": CURRENCY,
+            "sort_column": "price",
+            "sort_dir": "asc",
+        }
+
+        r = requests.get(
+            url,
+            params=params,
+            headers=request_headers("de", json_mode=True, referer=ref),
+            timeout=REQUEST_TIMEOUT
+        )
+
+        if r.status_code != 200:
+            return None
+
+        try:
+            data = r.json()
+        except Exception:
+            return None
+
+        if not data.get("success"):
+            return None
+
+        listinginfo = data.get("listinginfo", {})
+
+        if not listinginfo:
+            return None
+
+        prices = []
+
+        for listing in listinginfo.values():
+            converted_price = listing.get("converted_price")
+            converted_fee = listing.get("converted_fee")
+
+            if converted_price is not None:
+                cents = int_safe(converted_price) + int_safe(converted_fee)
+
+                if cents > 0:
+                    prices.append(cents / 100.0)
+                    continue
+
+            price = listing.get("price")
+            fee = listing.get("fee")
+
+            if price is not None:
+                cents = int_safe(price) + int_safe(fee)
+
+                if cents > 0:
+                    prices.append(cents / 100.0)
+
+        if not prices:
+            return None
+
+        lowest = min(prices)
+        total_count = data.get("total_count", len(prices))
+
+        debug_price(item_name, "render", euro(lowest))
+
+        return {
+            "sell_price": euro(lowest),
+            "buy_order": "Nicht verfügbar",
+            "sell_count": str(total_count),
+            "buy_count": "",
+            "price_number": lowest,
+            "source": "render",
+        }
+
+    except Exception as e:
+        if DEBUG_PRICES:
+            print(f"[PREIS] render Fehler bei {item_name}: {e}")
         return None
 
 
 def parse_listing_prices_from_html(html):
     prices = []
 
-    # Neue/React-Listings:
-    # \"unPricePerUnit\":1391,\"unFeePerUnit\":208
     pattern_unit = (
         r'\\?"unPricePerUnit\\?"\s*:\s*(\d+)'
         r'.{0,300}?'
@@ -340,8 +599,6 @@ def parse_listing_prices_from_html(html):
         except Exception:
             pass
 
-    # Alternative:
-    # \"unPrice\":1466,\"unFee\":219
     pattern_normal = (
         r'\\?"unPrice\\?"\s*:\s*(\d+)'
         r'.{0,300}?'
@@ -359,8 +616,6 @@ def parse_listing_prices_from_html(html):
         except Exception:
             pass
 
-    # Alternative:
-    # \"strSubtotal\":\"€16.85\"
     subtotal_matches = re.findall(
         r'\\?"strSubtotal\\?"\s*:\s*\\?"([^"\\]+)',
         html
@@ -375,7 +630,6 @@ def parse_listing_prices_from_html(html):
     if not prices:
         return None
 
-    # Kleinster gefundener Listingpreis
     lowest = min(prices)
 
     return {
@@ -389,8 +643,6 @@ def parse_listing_prices_from_html(html):
 
 
 def parse_price_history_from_html(html):
-    # Beispiel:
-    # \"time\":1418860800,\"price_median\":0.1762,\"purchases\":158
     matches = re.findall(
         r'\\?"time\\?"\s*:\s*(\d+)'
         r'\s*,\s*\\?"price_median\\?"\s*:\s*([0-9.]+)'
@@ -453,31 +705,48 @@ def get_market_page_price(appid, item_name):
         listing_data = parse_listing_prices_from_html(html)
 
         if listing_data and listing_data["price_number"] > 0:
+            debug_price(item_name, "listing_html", listing_data["sell_price"])
             return listing_data
 
         history_data = parse_price_history_from_html(html)
 
         if history_data and history_data["price_number"] > 0:
+            debug_price(item_name, "price_median", history_data["sell_price"])
             return history_data
 
         return None
 
-    except Exception:
+    except Exception as e:
+        if DEBUG_PRICES:
+            print(f"[PREIS] market_page Fehler bei {item_name}: {e}")
         return None
 
 
 def get_best_price(appid, item_name):
-    # 1. Schneller API-Endpunkt
+    """
+    Reihenfolge:
+    1. priceoverview
+    2. render JSON
+    3. HTML / React Listingdaten
+    4. price_median History
+    """
+
     data = get_priceoverview(appid, item_name)
 
     if data and data["price_number"] > 0:
         return data
 
-    # 2. Neue Steam-Market-Seite / React-HTML
+    data = get_render_price(appid, item_name)
+
+    if data and data["price_number"] > 0:
+        return data
+
     data = get_market_page_price(appid, item_name)
 
     if data and data["price_number"] > 0:
         return data
+
+    debug_price(item_name, "none", "Kein Preis")
 
     return {
         "sell_price": "Kein Preis",
@@ -496,7 +765,7 @@ def get_best_price(appid, item_name):
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title("Steam Inventory Manager Tool V4")
+        self.root.title("Steam Inventory Manager Tool V5")
         self.root.geometry("1650x900")
 
         self.rows = []
@@ -769,7 +1038,7 @@ class App:
             return None
 
     # --------------------------------------------------------
-    # Scan
+    # Inventory Scan
     # --------------------------------------------------------
 
     def start_scan_inventory(self):
@@ -794,6 +1063,7 @@ class App:
                 contextid,
                 stop_checker=lambda: self.is_stopped(task_id)
             )
+
         except Exception as e:
             if not self.is_stopped(task_id):
                 self.show_error("Fehler beim Inventory-Scan", str(e))
@@ -848,7 +1118,15 @@ class App:
                 icon = steam_icon_url(item.get("icon_url", ""))
 
                 con.execute("""
-                    INSERT OR REPLACE INTO inventory
+                    DELETE FROM inventory
+                    WHERE appid = ? AND item_name = ?
+                """, (
+                    appid,
+                    name
+                ))
+
+                con.execute("""
+                    INSERT INTO inventory
                     (
                         game,
                         appid,
@@ -892,7 +1170,7 @@ class App:
         self.root.after(0, self.load_from_db)
 
     # --------------------------------------------------------
-    # Preise
+    # Preisupdate
     # --------------------------------------------------------
 
     def start_update_prices(self):
@@ -974,6 +1252,8 @@ class App:
                         SELECT sell_price, price_number
                         FROM prices
                         WHERE appid = ? AND item_name = ?
+                        ORDER BY last_update DESC
+                        LIMIT 1
                     """, (appid, item)).fetchone()
                 finally:
                     con_local.close()
@@ -1009,7 +1289,11 @@ class App:
 
                 try:
                     result = future.result()
-                except Exception:
+                except CancelledError:
+                    continue
+                except Exception as e:
+                    if DEBUG_PRICES:
+                        print(f"[PREIS] Worker-Fehler: {e}")
                     continue
 
                 if not result:
@@ -1018,7 +1302,15 @@ class App:
                 appid, item, data = result
 
                 con.execute("""
-                    INSERT OR REPLACE INTO prices
+                    DELETE FROM prices
+                    WHERE appid = ? AND item_name = ?
+                """, (
+                    appid,
+                    item
+                ))
+
+                con.execute("""
+                    INSERT INTO prices
                     (
                         appid,
                         item_name,
@@ -1156,15 +1448,18 @@ class App:
                 f"{row['Gesamt']:.2f}",
             )
 
-            # WICHTIG:
-            # values=values muss hier explizit stehen.
-            # Genau das hat deinen TclError ausgelöst.
+            insert_kwargs = {
+                "iid": iid,
+                "values": values,
+            }
+
+            if img:
+                insert_kwargs["image"] = img
+
             self.tree.insert(
                 "",
                 "end",
-                iid=iid,
-                image=img,
-                values=values
+                **insert_kwargs
             )
 
         self.total_label.config(
