@@ -1,0 +1,839 @@
+{
+  "753:24010-BR Class 421 \"4CIG\"": {
+    "timestamp": 1783018114.9792552,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,03",
+      "SellAnzahl": "113",
+      "BuyAnzahl": "15"
+    }
+  },
+  "753:41070-Antaresian Spider": {
+    "timestamp": 1783018120.1718218,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,04",
+      "SellAnzahl": "447",
+      "BuyAnzahl": "588"
+    }
+  },
+  "753:42910-Fire Element": {
+    "timestamp": 1783018125.0688822,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,03",
+      "SellAnzahl": "498",
+      "BuyAnzahl": "74"
+    }
+  },
+  "753:107410-HEMTT": {
+    "timestamp": 1783018130.1522777,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,04",
+      "SellAnzahl": "975",
+      "BuyAnzahl": "589"
+    }
+  },
+  "753:107410-Speedboat": {
+    "timestamp": 1783018135.6767402,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,04",
+      "SellAnzahl": "720",
+      "BuyAnzahl": "260"
+    }
+  },
+  "753:113020-The Pickpocket": {
+    "timestamp": 1783018140.4019613,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:200510-Muton": {
+    "timestamp": 1783018144.769852,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:203140-Skull Splitter": {
+    "timestamp": 1783018149.3720345,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:203140-Run for your life": {
+    "timestamp": 1783018153.7281294,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:203140-Dexter Industries": {
+    "timestamp": 1783018158.1351173,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:203140-Red Room": {
+    "timestamp": 1783018162.5191703,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:218620-Hector": {
+    "timestamp": 1783018166.9726262,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:218620-Torn Page of the Guide of Bain": {
+    "timestamp": 1783018171.415156,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:218620-Wolf (Trading Card)": {
+    "timestamp": 1783018175.784316,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:221680-Amplifiers": {
+    "timestamp": 1783018180.234838,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:221680-Gone Wailin'": {
+    "timestamp": 1783018184.5778465,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:221680-Session Mode": {
+    "timestamp": 1783018188.9140103,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:221680-Scale Racer": {
+    "timestamp": 1783018193.3989139,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:223220-The Rebel": {
+    "timestamp": 1783018197.76729,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:225080-Little Brother": {
+    "timestamp": 1783018202.1585438,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:233720-Ham Fisted": {
+    "timestamp": 1783018206.523724,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:233720-Trisha?": {
+    "timestamp": 1783018210.905151,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:236850-Gustavus Adolphus": {
+    "timestamp": 1783018215.3106194,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:238960-Maligaro (Trading Card)": {
+    "timestamp": 1783018220.1214714,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "596",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:238960-Soul Taker": {
+    "timestamp": 1783018224.7908182,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,03",
+      "SellAnzahl": "378",
+      "BuyAnzahl": "217"
+    }
+  },
+  "753:239030-Calensk": {
+    "timestamp": 1783018229.641018,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,03",
+      "SellAnzahl": "089",
+      "BuyAnzahl": "551"
+    }
+  },
+  "753:239030-Jorji Costava": {
+    "timestamp": 1783018234.1953092,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,04",
+      "SellAnzahl": "041",
+      "BuyAnzahl": "414"
+    }
+  },
+  "753:239030-Passports": {
+    "timestamp": 1783018238.9547765,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,03",
+      "SellAnzahl": "161",
+      "BuyAnzahl": "928"
+    }
+  },
+  "753:239820-The Start": {
+    "timestamp": 1783018243.942559,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,04",
+      "SellAnzahl": "572",
+      "BuyAnzahl": "901"
+    }
+  },
+  "753:245170-Filia": {
+    "timestamp": 1783018248.8446026,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "386",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:245620-Adriana Diaz": {
+    "timestamp": 1783018253.8001819,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,03",
+      "SellAnzahl": "353",
+      "BuyAnzahl": "269"
+    }
+  },
+  "753:245620-Rudolf Thompson": {
+    "timestamp": 1783018258.7932673,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,04",
+      "SellAnzahl": "310",
+      "BuyAnzahl": "670"
+    }
+  },
+  "753:268050-Asylum": {
+    "timestamp": 1783018263.6358156,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,04",
+      "SellAnzahl": "350",
+      "BuyAnzahl": "430"
+    }
+  },
+  "753:268050-Barbed wire": {
+    "timestamp": 1783018268.6042347,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,03",
+      "SellAnzahl": "450",
+      "BuyAnzahl": "247"
+    }
+  },
+  "753:274290-Legend (Trading Card)": {
+    "timestamp": 1783018273.987793,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,05",
+      "SellAnzahl": "50",
+      "BuyAnzahl": "74"
+    }
+  },
+  "753:286160-Table Flippin'": {
+    "timestamp": 1783018279.4592164,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,03",
+      "SellAnzahl": "074",
+      "BuyAnzahl": "353"
+    }
+  },
+  "753:286160-Dominoes Toppling!": {
+    "timestamp": 1783018284.284183,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,03",
+      "SellAnzahl": "205",
+      "BuyAnzahl": "312"
+    }
+  },
+  "753:286160-I Am Royalty": {
+    "timestamp": 1783018289.1007473,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,03",
+      "SellAnzahl": "149",
+      "BuyAnzahl": "392"
+    }
+  },
+  "753:289690-Carter Bell": {
+    "timestamp": 1783018294.0720153,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,04",
+      "SellAnzahl": "54",
+      "BuyAnzahl": "217"
+    }
+  },
+  "753:289690-Horus": {
+    "timestamp": 1783018299.1123967,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,05",
+      "SellAnzahl": "60",
+      "BuyAnzahl": "116"
+    }
+  },
+  "753:289690-Scarab": {
+    "timestamp": 1783018303.8264644,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,04",
+      "SellAnzahl": "65",
+      "BuyAnzahl": "137"
+    }
+  },
+  "753:304650-Nacreous Outcast": {
+    "timestamp": 1783018308.6400337,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,04",
+      "SellAnzahl": "124",
+      "BuyAnzahl": "245"
+    }
+  },
+  "753:327890-Hair Care and Welfare Club": {
+    "timestamp": 1783018313.5903234,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,05",
+      "SellAnzahl": "69",
+      "BuyAnzahl": "152"
+    }
+  },
+  "753:327890-Channel Hoppers Society": {
+    "timestamp": 1783018318.6529698,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,04",
+      "SellAnzahl": "113",
+      "BuyAnzahl": "88"
+    }
+  },
+  "753:334420-Rocky": {
+    "timestamp": 1783018323.8041494,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,06",
+      "SellAnzahl": "18",
+      "BuyAnzahl": "124"
+    }
+  },
+  "753:337000-Marchenko (Trading Card)": {
+    "timestamp": 1783018328.8122668,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,03",
+      "SellAnzahl": "486",
+      "BuyAnzahl": "7"
+    }
+  },
+  "753:337000-Miller": {
+    "timestamp": 1783018333.4514017,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,04",
+      "SellAnzahl": "522",
+      "BuyAnzahl": "10"
+    }
+  },
+  "753:337000-Vega (Trading Card)": {
+    "timestamp": 1783018338.163897,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "584",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:362890-Imposing Force": {
+    "timestamp": 1783018343.0898502,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,04",
+      "SellAnzahl": "131",
+      "BuyAnzahl": "554"
+    }
+  },
+  "753:362890-Paging Dr. Horn": {
+    "timestamp": 1783018347.9158373,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,04",
+      "SellAnzahl": "856",
+      "BuyAnzahl": "602"
+    }
+  },
+  "753:362890-TOASTY!": {
+    "timestamp": 1783018352.5670178,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,04",
+      "SellAnzahl": "862",
+      "BuyAnzahl": "606"
+    }
+  },
+  "753:365450-EnTech": {
+    "timestamp": 1783018357.4081337,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,05",
+      "SellAnzahl": "563",
+      "BuyAnzahl": "176"
+    }
+  },
+  "753:375820-Midnight Petroleum (Trading Card)": {
+    "timestamp": 1783018362.1532302,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,06",
+      "SellAnzahl": "136",
+      "BuyAnzahl": "789"
+    }
+  },
+  "753:375820-End Program": {
+    "timestamp": 1783018367.2027268,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,05",
+      "SellAnzahl": "96",
+      "BuyAnzahl": "216"
+    }
+  },
+  "753:460810-Lt. Col. Robert Burns": {
+    "timestamp": 1783018372.3140144,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "147",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:460810-President Elizabeth Winters": {
+    "timestamp": 1783018377.337437,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "239",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:460810-Romanov-F": {
+    "timestamp": 1783018382.5257907,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "218",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:477160-Box": {
+    "timestamp": 1783018387.4399354,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,04",
+      "SellAnzahl": "817",
+      "BuyAnzahl": "604"
+    }
+  },
+  "753:477160-Speaker": {
+    "timestamp": 1783018392.3029726,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,03",
+      "SellAnzahl": "714",
+      "BuyAnzahl": "696"
+    }
+  },
+  "753:501590-Human Ishi": {
+    "timestamp": 1783018397.4896002,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,04",
+      "SellAnzahl": "209",
+      "BuyAnzahl": "204"
+    }
+  },
+  "753:553310-Raptor (Trading Card)": {
+    "timestamp": 1783018402.586987,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "194",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:555150-The Chartreuse Plains": {
+    "timestamp": 1783018407.803507,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,05",
+      "SellAnzahl": "85",
+      "BuyAnzahl": "38"
+    }
+  },
+  "753:599140-Merchant": {
+    "timestamp": 1783018412.740534,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,04",
+      "SellAnzahl": "488",
+      "BuyAnzahl": "536"
+    }
+  },
+  "753:599140-Snake": {
+    "timestamp": 1783018417.5770466,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,04",
+      "SellAnzahl": "497",
+      "BuyAnzahl": "109"
+    }
+  },
+  "753:599140-Astrologer (Trading Card)": {
+    "timestamp": 1783018422.5973666,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,03",
+      "SellAnzahl": "424",
+      "BuyAnzahl": "401"
+    }
+  },
+  "753:641080-Europe Semi Pro": {
+    "timestamp": 1783018427.803065,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "38",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:641080-Pro Tour C": {
+    "timestamp": 1783018432.9180336,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,03",
+      "SellAnzahl": "39",
+      "BuyAnzahl": "32"
+    }
+  },
+  "753:641080-Pro Tour B": {
+    "timestamp": 1783018438.0230482,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,03",
+      "SellAnzahl": "73",
+      "BuyAnzahl": "17"
+    }
+  },
+  "753:705120-Christmas": {
+    "timestamp": 1783018443.0898795,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,06",
+      "SellAnzahl": "67",
+      "BuyAnzahl": "92"
+    }
+  },
+  "753:815370-Stone Axe": {
+    "timestamp": 1783018448.0844553,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "366",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:860950-Threat": {
+    "timestamp": 1783018453.2963393,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "240",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:916440-Madame Kahina": {
+    "timestamp": 1783018458.3097348,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "888",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:916440-Eli Bleakworth": {
+    "timestamp": 1783018463.2365777,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "883",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:916440-George Smith": {
+    "timestamp": 1783018467.9625542,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,03",
+      "SellAnzahl": "528",
+      "BuyAnzahl": "42"
+    }
+  },
+  "753:1088790-Civil Servant": {
+    "timestamp": 1783018473.009647,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "190",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:1088790-Economist": {
+    "timestamp": 1783018477.7024987,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,03",
+      "SellAnzahl": "205",
+      "BuyAnzahl": "7"
+    }
+  },
+  "753:1088790-Tank Commander": {
+    "timestamp": 1783018482.534831,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "219",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:1486920-Dr Francis": {
+    "timestamp": 1783018487.5430796,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,03",
+      "SellAnzahl": "421",
+      "BuyAnzahl": "88"
+    }
+  },
+  "753:1486920-Aleks Molchalin": {
+    "timestamp": 1783018492.9858036,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,03",
+      "SellAnzahl": "470",
+      "BuyAnzahl": "143"
+    }
+  },
+  "753:1486920-The GDF Council": {
+    "timestamp": 1783018498.5164468,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,03",
+      "SellAnzahl": "404",
+      "BuyAnzahl": "60"
+    }
+  },
+  "753:2999030-Cats n'Dogs": {
+    "timestamp": 1783018503.4525983,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,05",
+      "SellAnzahl": "46",
+      "BuyAnzahl": "41"
+    }
+  },
+  "753:2999030-Cat-astic Creatures": {
+    "timestamp": 1783018508.3275607,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,05",
+      "SellAnzahl": "40",
+      "BuyAnzahl": "15"
+    }
+  },
+  "753:2999030-The Kings": {
+    "timestamp": 1783018512.9711988,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,05",
+      "SellAnzahl": "49",
+      "BuyAnzahl": "28"
+    }
+  },
+  "753:3035120-Alexis": {
+    "timestamp": 1783018517.841717,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,06",
+      "SellAnzahl": "290",
+      "BuyAnzahl": "419"
+    }
+  },
+  "753:113200-Wrath of the Cast": {
+    "timestamp": 1783018523.2528803,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "247",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:225140-Invasion": {
+    "timestamp": 1783018529.093465,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "9",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:225140-Duke Nukem Must Die": {
+    "timestamp": 1783018534.766656,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "21",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:225140-Meltdown": {
+    "timestamp": 1783018540.3938003,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,04",
+      "SellAnzahl": "23",
+      "BuyAnzahl": "6"
+    }
+  },
+  "753:225140-Life's a Beach": {
+    "timestamp": 1783018545.9796083,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,03",
+      "SellAnzahl": "21",
+      "BuyAnzahl": "12"
+    }
+  },
+  "753:225140-Nuclear Winter": {
+    "timestamp": 1783018552.7783804,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "Kein Preis",
+      "SellAnzahl": "36",
+      "BuyAnzahl": ""
+    }
+  },
+  "753:238960-Merveil": {
+    "timestamp": 1783018591.253718,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,05",
+      "SellAnzahl": "106",
+      "BuyAnzahl": "717"
+    }
+  },
+  "753:238960-The Sceptre of God": {
+    "timestamp": 1783018596.1561787,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,05",
+      "SellAnzahl": "95",
+      "BuyAnzahl": "215"
+    }
+  },
+  "753:268910-Cuphead and Mugman Two": {
+    "timestamp": 1783018601.8923357,
+    "data": {
+      "SellPreis": "Kein Preis",
+      "BuyOrder": "€0,04",
+      "SellAnzahl": "232",
+      "BuyAnzahl": "263"
+    }
+  }
+}
