@@ -1,4 +1,4 @@
-# Tool_V5.py
+# Tool_V8.py
 # pip install requests pandas pillow
 
 import tkinter as tk
@@ -10,6 +10,7 @@ import time
 import webbrowser
 import re
 import sqlite3
+import html as html_lib
 from urllib.parse import quote
 from PIL import Image, ImageTk
 from io import BytesIO
@@ -36,12 +37,13 @@ COUNTRY = "DE"
 
 REQUEST_TIMEOUT = 10
 MAX_PRICE_WORKERS = 4
+MAX_THUMB_WORKERS = 8
 
 ICON_SIZE = 56
 DETAIL_SIZE = 320
 HOVER_SIZE = 260
 
-SHOW_TABLE_ICONS = False
+SHOW_TABLE_ICONS = True
 DEBUG_PRICES = True
 
 
@@ -80,7 +82,23 @@ def db():
             buy_count TEXT,
             price_number REAL,
             source TEXT,
+            trend_7d REAL,
+            trend_30d REAL,
+            history_points INTEGER,
+            last_sale_time INTEGER,
             last_update REAL
+        )
+    """)
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS price_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            appid INTEGER,
+            item_name TEXT,
+            timestamp INTEGER,
+            price_median REAL,
+            purchases INTEGER,
+            scanned_at REAL
         )
     """)
 
@@ -104,7 +122,33 @@ def db():
     ensure_column(con, "prices", "buy_count", "TEXT")
     ensure_column(con, "prices", "price_number", "REAL")
     ensure_column(con, "prices", "source", "TEXT")
+    ensure_column(con, "prices", "trend_7d", "REAL")
+    ensure_column(con, "prices", "trend_30d", "REAL")
+    ensure_column(con, "prices", "history_points", "INTEGER")
+    ensure_column(con, "prices", "last_sale_time", "INTEGER")
     ensure_column(con, "prices", "last_update", "REAL")
+
+    ensure_column(con, "price_history", "appid", "INTEGER")
+    ensure_column(con, "price_history", "item_name", "TEXT")
+    ensure_column(con, "price_history", "timestamp", "INTEGER")
+    ensure_column(con, "price_history", "price_median", "REAL")
+    ensure_column(con, "price_history", "purchases", "INTEGER")
+    ensure_column(con, "price_history", "scanned_at", "REAL")
+
+    con.execute("""
+        CREATE INDEX IF NOT EXISTS idx_inventory_app_item
+        ON inventory(appid, item_name)
+    """)
+
+    con.execute("""
+        CREATE INDEX IF NOT EXISTS idx_prices_app_item
+        ON prices(appid, item_name)
+    """)
+
+    con.execute("""
+        CREATE INDEX IF NOT EXISTS idx_history_app_item_time
+        ON price_history(appid, item_name, timestamp)
+    """)
 
     con.commit()
     return con
@@ -118,7 +162,6 @@ def ensure_column(con, table, column, definition):
         if column not in cols:
             con.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
             con.commit()
-
     except sqlite3.OperationalError:
         pass
 
@@ -167,11 +210,20 @@ def euro(value):
         return "Kein Preis"
 
 
-def euro_from_cents(cents):
+def percent_text(value):
+    if value is None:
+        return ""
+
     try:
-        return euro(float(cents) / 100.0)
+        v = float(value)
     except Exception:
-        return "Kein Preis"
+        return ""
+
+    if abs(v) < 0.01:
+        return "0,00%"
+
+    sign = "+" if v > 0 else ""
+    return f"{sign}{v:.2f}%".replace(".", ",")
 
 
 def market_link(appid, item):
@@ -238,7 +290,145 @@ def request_headers(language="de", json_mode=False, referer=None):
 
 def debug_price(item, source, price):
     if DEBUG_PRICES:
-        print(f"[PREIS] {source:16} | {price:>10} | {item}")
+        print(f"[PREIS] {source:20} | {str(price):>12} | {item}")
+
+
+def normalize_text_variants(text):
+    """
+    Steam liefert React-/SSR-Daten teilweise unterschiedlich escaped:
+    "price_median"
+    \"price_median\"
+    \\\"price_median\\\"
+    &quot;price_median&quot;
+
+    Diese Funktion erzeugt mehrere Varianten, damit der Parser mehr findet.
+    """
+    variants = []
+    seen = set()
+
+    def add(value):
+        if value is None:
+            return
+        if value not in seen:
+            seen.add(value)
+            variants.append(value)
+
+    s = text or ""
+
+    for _ in range(6):
+        add(s)
+
+        h = html_lib.unescape(s)
+        add(h)
+
+        s2 = h
+        s2 = s2.replace("\\u0022", '"')
+        s2 = s2.replace("\\u0026", "&")
+        s2 = s2.replace("\\u003c", "<")
+        s2 = s2.replace("\\u003e", ">")
+        s2 = s2.replace("\\/", "/")
+
+        s2 = s2.replace('\\\\\\"', '"')
+        s2 = s2.replace('\\\\"', '"')
+        s2 = s2.replace('\\"', '"')
+
+        s2 = s2.replace("\\\\", "\\")
+
+        add(s2)
+
+        if s2 == s:
+            break
+
+        s = s2
+
+    return variants
+
+
+def weighted_average(entries):
+    total_value = 0.0
+    total_weight = 0
+
+    for _, price, purchases in entries:
+        weight = max(int(purchases), 1)
+        total_value += float(price) * weight
+        total_weight += weight
+
+    if total_weight <= 0:
+        return 0.0
+
+    return total_value / total_weight
+
+
+def calc_history_stats(entries):
+    if not entries:
+        return {
+            "last_price": 0.0,
+            "last_volume": "",
+            "last_time": None,
+            "trend_7d": None,
+            "trend_30d": None,
+            "history_points": 0,
+            "avg_7d": 0.0,
+            "avg_30d": 0.0,
+        }
+
+    clean = []
+
+    for t, p, v in entries:
+        try:
+            t = int(t)
+            p = float(p)
+            v = int(v)
+
+            if p > 0:
+                clean.append((t, p, max(v, 0)))
+        except Exception:
+            pass
+
+    if not clean:
+        return {
+            "last_price": 0.0,
+            "last_volume": "",
+            "last_time": None,
+            "trend_7d": None,
+            "trend_30d": None,
+            "history_points": 0,
+            "avg_7d": 0.0,
+            "avg_30d": 0.0,
+        }
+
+    clean.sort(key=lambda x: x[0])
+
+    last_time, last_price, last_volume = clean[-1]
+
+    seven_days = 7 * 24 * 60 * 60
+    thirty_days = 30 * 24 * 60 * 60
+
+    entries_7d = [e for e in clean if e[0] >= last_time - seven_days]
+    entries_30d = [e for e in clean if e[0] >= last_time - thirty_days]
+
+    avg_7d = weighted_average(entries_7d) if entries_7d else 0.0
+    avg_30d = weighted_average(entries_30d) if entries_30d else 0.0
+
+    trend_7d = None
+    trend_30d = None
+
+    if avg_7d > 0:
+        trend_7d = ((last_price - avg_7d) / avg_7d) * 100.0
+
+    if avg_30d > 0:
+        trend_30d = ((last_price - avg_30d) / avg_30d) * 100.0
+
+    return {
+        "last_price": last_price,
+        "last_volume": str(last_volume),
+        "last_time": last_time,
+        "trend_7d": trend_7d,
+        "trend_30d": trend_30d,
+        "history_points": len(clean),
+        "avg_7d": avg_7d,
+        "avg_30d": avg_30d,
+    }
 
 
 # ============================================================
@@ -246,13 +436,6 @@ def debug_price(item, source, price):
 # ============================================================
 
 def get_inventory_all(appid, contextid, stop_checker=None):
-    """
-    Robuster Inventory-Scanner.
-    Versucht zuerst den neuen Steam-Endpunkt mit kleinerem count.
-    Falls Steam 400 liefert, wird automatisch reduziert.
-    Falls alles fehlschlägt, wird der alte /inventory/json/ Endpunkt genutzt.
-    """
-
     count_options = [2000, 1000, 500]
     last_error = None
 
@@ -357,11 +540,6 @@ def get_inventory_all_modern(appid, contextid, count_value, stop_checker=None):
 
 
 def get_inventory_legacy_json(appid, contextid, stop_checker=None):
-    """
-    Alter Steam-Endpunkt als Fallback:
-    /profiles/<steamid>/inventory/json/<appid>/<contextid>
-    """
-
     if stop_checker and stop_checker():
         return {
             "assets": [],
@@ -431,11 +609,6 @@ def get_inventory_legacy_json(appid, contextid, stop_checker=None):
 # ============================================================
 
 def get_priceoverview(appid, item_name):
-    """
-    Schneller Steam-Endpunkt.
-    Funktioniert nicht bei allen Items.
-    """
-
     try:
         url = "https://steamcommunity.com/market/priceoverview/"
 
@@ -480,6 +653,11 @@ def get_priceoverview(appid, item_name):
             "buy_count": "",
             "price_number": price_number,
             "source": "priceoverview",
+            "trend_7d": None,
+            "trend_30d": None,
+            "history_points": 0,
+            "last_sale_time": None,
+            "history_entries": [],
         }
 
     except Exception as e:
@@ -489,15 +667,8 @@ def get_priceoverview(appid, item_name):
 
 
 def get_render_price(appid, item_name):
-    """
-    Steam-Market-Render-Endpunkt.
-    Dieser liefert oft die aktuellen Listings als JSON.
-    Besonders wichtig für CS2/Dota/TF2.
-    """
-
     try:
         ref = market_link(appid, item_name)
-
         url = ref + "/render/"
 
         params = {
@@ -571,6 +742,11 @@ def get_render_price(appid, item_name):
             "buy_count": "",
             "price_number": lowest,
             "source": "render",
+            "trend_7d": None,
+            "trend_30d": None,
+            "history_points": 0,
+            "last_sale_time": None,
+            "history_entries": [],
         }
 
     except Exception as e:
@@ -582,50 +758,39 @@ def get_render_price(appid, item_name):
 def parse_listing_prices_from_html(html):
     prices = []
 
-    pattern_unit = (
-        r'\\?"unPricePerUnit\\?"\s*:\s*(\d+)'
-        r'.{0,300}?'
-        r'\\?"unFeePerUnit\\?"\s*:\s*(\d+)'
-    )
+    field_price_patterns = [
+        (
+            r'\\*"unPricePerUnit\\*"\s*:\s*(\d+)'
+            r'.{0,700}?'
+            r'\\*"unFeePerUnit\\*"\s*:\s*(\d+)'
+        ),
+        (
+            r'\\*"unPrice\\*"\s*:\s*(\d+)'
+            r'.{0,700}?'
+            r'\\*"unFee\\*"\s*:\s*(\d+)'
+        ),
+    ]
 
-    for m in re.finditer(pattern_unit, html, flags=re.DOTALL):
-        try:
-            price_cents = int(m.group(1))
-            fee_cents = int(m.group(2))
-            total = (price_cents + fee_cents) / 100.0
+    for variant in normalize_text_variants(html):
+        for pattern in field_price_patterns:
+            for m in re.finditer(pattern, variant, flags=re.DOTALL):
+                try:
+                    price_cents = int(m.group(1))
+                    fee_cents = int(m.group(2))
+                    total = (price_cents + fee_cents) / 100.0
 
-            if total > 0:
-                prices.append(total)
-        except Exception:
-            pass
+                    if total > 0:
+                        prices.append(total)
+                except Exception:
+                    pass
 
-    pattern_normal = (
-        r'\\?"unPrice\\?"\s*:\s*(\d+)'
-        r'.{0,300}?'
-        r'\\?"unFee\\?"\s*:\s*(\d+)'
-    )
+        subtotal_pattern = r'\\*"strSubtotal\\*"\s*:\s*\\*"([^"\\]+)'
 
-    for m in re.finditer(pattern_normal, html, flags=re.DOTALL):
-        try:
-            price_cents = int(m.group(1))
-            fee_cents = int(m.group(2))
-            total = (price_cents + fee_cents) / 100.0
+        for text in re.findall(subtotal_pattern, variant, flags=re.DOTALL):
+            p = parse_price(text)
 
-            if total > 0:
-                prices.append(total)
-        except Exception:
-            pass
-
-    subtotal_matches = re.findall(
-        r'\\?"strSubtotal\\?"\s*:\s*\\?"([^"\\]+)',
-        html
-    )
-
-    for text in subtotal_matches:
-        p = parse_price(text)
-
-        if p > 0:
-            prices.append(p)
+            if p > 0:
+                prices.append(p)
 
     if not prices:
         return None
@@ -639,55 +804,75 @@ def parse_listing_prices_from_html(html):
         "buy_count": "",
         "price_number": lowest,
         "source": "listing_html",
+        "trend_7d": None,
+        "trend_30d": None,
+        "history_points": 0,
+        "last_sale_time": None,
+        "history_entries": [],
     }
 
 
-def parse_price_history_from_html(html):
-    matches = re.findall(
-        r'\\?"time\\?"\s*:\s*(\d+)'
-        r'\s*,\s*\\?"price_median\\?"\s*:\s*([0-9.]+)'
-        r'\s*,\s*\\?"purchases\\?"\s*:\s*(\d+)',
-        html
+def parse_price_history_entries(html):
+    entries = []
+
+    pattern = (
+        r'\\*"time\\*"\s*:\s*(\d+)'
+        r'.{0,180}?'
+        r'\\*"price_median\\*"\s*:\s*([0-9.]+)'
+        r'.{0,120}?'
+        r'\\*"purchases\\*"\s*:\s*(\d+)'
     )
 
-    if not matches:
-        matches = re.findall(
-            r'"time"\s*:\s*(\d+)'
-            r'\s*,\s*"price_median"\s*:\s*([0-9.]+)'
-            r'\s*,\s*"purchases"\s*:\s*(\d+)',
-            html
-        )
+    for variant in normalize_text_variants(html):
+        matches = re.findall(pattern, variant, flags=re.DOTALL)
 
-    parsed = []
+        for t, price, purchases in matches:
+            try:
+                timestamp = int(t)
+                price_value = float(price)
+                volume = int(purchases)
 
-    for t, price, purchases in matches:
-        try:
-            timestamp = int(t)
-            price_value = float(price)
-            volume = int(purchases)
+                if price_value > 0:
+                    entries.append((timestamp, price_value, volume))
+            except Exception:
+                pass
 
-            if price_value > 0:
-                parsed.append((timestamp, price_value, volume))
-        except Exception:
-            pass
+    if not entries:
+        return []
 
-    if not parsed:
+    dedup = {}
+
+    for t, price, purchases in entries:
+        dedup[t] = (t, price, purchases)
+
+    result = list(dedup.values())
+    result.sort(key=lambda x: x[0])
+
+    return result
+
+
+def price_from_history_entries(entries):
+    stats = calc_history_stats(entries)
+
+    if stats["last_price"] <= 0:
         return None
 
-    parsed.sort(key=lambda x: x[0])
-    last_time, last_price, last_volume = parsed[-1]
-
     return {
-        "sell_price": euro(last_price),
+        "sell_price": euro(stats["last_price"]),
         "buy_order": "Nicht verfügbar",
-        "sell_count": str(last_volume),
+        "sell_count": stats["last_volume"],
         "buy_count": "",
-        "price_number": last_price,
-        "source": "price_median",
+        "price_number": stats["last_price"],
+        "source": "history_last",
+        "trend_7d": stats["trend_7d"],
+        "trend_30d": stats["trend_30d"],
+        "history_points": stats["history_points"],
+        "last_sale_time": stats["last_time"],
+        "history_entries": entries,
     }
 
 
-def get_market_page_price(appid, item_name):
+def get_market_page_data(appid, item_name):
     try:
         url = market_link(appid, item_name) + "?l=english"
 
@@ -702,16 +887,30 @@ def get_market_page_price(appid, item_name):
 
         html = r.text
 
+        history_entries = parse_price_history_entries(html)
+        history_data = price_from_history_entries(history_entries)
+
+        if DEBUG_PRICES:
+            if history_entries:
+                print(f"[HISTORY] {len(history_entries):4} Punkte | {item_name}")
+            else:
+                print(f"[HISTORY]    0 Punkte | {item_name}")
+
         listing_data = parse_listing_prices_from_html(html)
 
         if listing_data and listing_data["price_number"] > 0:
+            if history_data:
+                listing_data["history_entries"] = history_entries
+                listing_data["trend_7d"] = history_data["trend_7d"]
+                listing_data["trend_30d"] = history_data["trend_30d"]
+                listing_data["history_points"] = history_data["history_points"]
+                listing_data["last_sale_time"] = history_data["last_sale_time"]
+
             debug_price(item_name, "listing_html", listing_data["sell_price"])
             return listing_data
 
-        history_data = parse_price_history_from_html(html)
-
         if history_data and history_data["price_number"] > 0:
-            debug_price(item_name, "price_median", history_data["sell_price"])
+            debug_price(item_name, "history_last", history_data["sell_price"])
             return history_data
 
         return None
@@ -723,25 +922,17 @@ def get_market_page_price(appid, item_name):
 
 
 def get_best_price(appid, item_name):
-    """
-    Reihenfolge:
-    1. priceoverview
-    2. render JSON
-    3. HTML / React Listingdaten
-    4. price_median History
-    """
+    data = get_render_price(appid, item_name)
+
+    if data and data["price_number"] > 0:
+        return data
 
     data = get_priceoverview(appid, item_name)
 
     if data and data["price_number"] > 0:
         return data
 
-    data = get_render_price(appid, item_name)
-
-    if data and data["price_number"] > 0:
-        return data
-
-    data = get_market_page_price(appid, item_name)
+    data = get_market_page_data(appid, item_name)
 
     if data and data["price_number"] > 0:
         return data
@@ -755,6 +946,11 @@ def get_best_price(appid, item_name):
         "buy_count": "",
         "price_number": 0.0,
         "source": "none",
+        "trend_7d": None,
+        "trend_30d": None,
+        "history_points": 0,
+        "last_sale_time": None,
+        "history_entries": [],
     }
 
 
@@ -765,11 +961,17 @@ def get_best_price(appid, item_name):
 class App:
     def __init__(self, root):
         self.root = root
-        self.root.title("Steam Inventory Manager Tool V5")
-        self.root.geometry("1650x900")
+        self.root.title("Steam Inventory Manager Tool V8")
+        self.root.geometry("1780x920")
 
         self.rows = []
         self.image_cache = {}
+
+        self.table_thumb_cache = {}
+        self.table_thumb_jobs = set()
+        self.iid_icon_url = {}
+        self.thumb_executor = ThreadPoolExecutor(max_workers=MAX_THUMB_WORKERS)
+
         self.hover_window = None
         self.last_hover_item = None
         self.sort_state = {}
@@ -782,8 +984,6 @@ class App:
         self.setup_ui()
 
         db().close()
-
-    # --------------------------------------------------------
 
     def setup_style(self):
         self.root.configure(bg="#111111")
@@ -833,7 +1033,7 @@ class App:
             background="#222222",
             foreground="#ffffff",
             fieldbackground="#222222",
-            rowheight=40
+            rowheight=66
         )
 
         style.configure(
@@ -848,8 +1048,6 @@ class App:
             background=[("selected", "#4b4b4b")],
             foreground=[("selected", "#ffffff")]
         )
-
-    # --------------------------------------------------------
 
     def setup_ui(self):
         top = ttk.Frame(self.root)
@@ -873,8 +1071,10 @@ class App:
         ttk.Button(top, text="Aus DB laden", command=self.load_from_db).pack(side="left", padx=4)
         ttk.Button(top, text="Preise aktualisieren", command=self.start_update_prices).pack(side="left", padx=4)
         ttk.Button(top, text="Preise neu erzwingen", command=self.start_force_update_prices).pack(side="left", padx=4)
+        ttk.Button(top, text="Verlauf aktualisieren", command=self.start_update_history).pack(side="left", padx=4)
         ttk.Button(top, text="Market öffnen", command=self.open_market).pack(side="left", padx=4)
         ttk.Button(top, text="CSV Export", command=self.export_csv).pack(side="left", padx=4)
+        ttk.Button(top, text="History CSV", command=self.export_history_csv).pack(side="left", padx=4)
 
         search_frame = ttk.Frame(self.root)
         search_frame.pack(fill="x", padx=10)
@@ -888,6 +1088,14 @@ class App:
             search_frame,
             textvariable=self.search_var,
             width=55
+        ).pack(side="left", padx=8)
+
+        self.filter_no_price = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            search_frame,
+            text="nur ohne Preis",
+            variable=self.filter_no_price,
+            command=self.apply_filter
         ).pack(side="left", padx=8)
 
         self.total_label = ttk.Label(search_frame, text="Gesamtwert: €0,00")
@@ -913,25 +1121,31 @@ class App:
             "Preis",
             "Quelle",
             "Volumen",
+            "Trend7T",
+            "Trend30T",
+            "History",
             "Gesamt"
         )
 
         self.tree = ttk.Treeview(left, columns=cols, show="tree headings")
 
         self.tree.heading("#0", text="Bild")
-        self.tree.column("#0", width=70, stretch=False, anchor="center")
+        self.tree.column("#0", width=78, stretch=False, anchor="center")
 
         for c in cols:
             self.tree.heading(c, text=c, command=lambda col=c: self.sort_by_column(col))
 
-        self.tree.column("Spiel", width=120)
-        self.tree.column("Item", width=430)
-        self.tree.column("Typ", width=220)
-        self.tree.column("Anzahl", width=80)
-        self.tree.column("Preis", width=110)
-        self.tree.column("Quelle", width=130)
-        self.tree.column("Volumen", width=90)
-        self.tree.column("Gesamt", width=110)
+        self.tree.column("Spiel", width=105)
+        self.tree.column("Item", width=390)
+        self.tree.column("Typ", width=200)
+        self.tree.column("Anzahl", width=70)
+        self.tree.column("Preis", width=95)
+        self.tree.column("Quelle", width=115)
+        self.tree.column("Volumen", width=80)
+        self.tree.column("Trend7T", width=85)
+        self.tree.column("Trend30T", width=90)
+        self.tree.column("History", width=75)
+        self.tree.column("Gesamt", width=95)
 
         self.tree.pack(fill="both", expand=True)
 
@@ -956,8 +1170,8 @@ class App:
 
         self.detail_text = tk.Text(
             right,
-            width=42,
-            height=24,
+            width=44,
+            height=28,
             bg="#1b1b1b",
             fg="#ffffff",
             insertbackground="#ffffff",
@@ -965,8 +1179,6 @@ class App:
             font=("Segoe UI", 10)
         )
         self.detail_text.pack(fill="y")
-
-    # --------------------------------------------------------
 
     def set_status(self, text):
         self.root.after(0, lambda: self.status.config(text=text))
@@ -999,8 +1211,6 @@ class App:
 
     def is_stopped(self, task_id):
         return self.stop_event.is_set() or task_id != self.task_id
-
-    # --------------------------------------------------------
 
     def get_image(self, url, size):
         if not url:
@@ -1170,7 +1380,51 @@ class App:
         self.root.after(0, self.load_from_db)
 
     # --------------------------------------------------------
-    # Preisupdate
+    # DB-Zeilen
+    # --------------------------------------------------------
+
+    def get_inventory_rows_for_game(self, game):
+        appid = APPS[game]["appid"]
+
+        con = db()
+
+        try:
+            cur = con.execute("""
+                SELECT
+                    game,
+                    appid,
+                    item_name,
+                    type,
+                    amount
+                FROM inventory
+                WHERE appid = ?
+                AND id IN (
+                    SELECT MAX(id)
+                    FROM inventory
+                    WHERE appid = ?
+                    GROUP BY item_name
+                )
+                ORDER BY item_name
+            """, (appid, appid))
+
+            rows = []
+
+            for r in cur.fetchall():
+                rows.append({
+                    "Spiel": r[0],
+                    "AppID": r[1],
+                    "Item": r[2],
+                    "Typ": r[3],
+                    "Anzahl": r[4] or 1,
+                })
+
+            return rows
+
+        finally:
+            con.close()
+
+    # --------------------------------------------------------
+    # Preise
     # --------------------------------------------------------
 
     def start_update_prices(self):
@@ -1192,40 +1446,6 @@ class App:
             args=(task_id, game, True),
             daemon=True
         ).start()
-
-    def get_inventory_rows_for_game(self, game):
-        appid = APPS[game]["appid"]
-
-        con = db()
-
-        try:
-            cur = con.execute("""
-                SELECT
-                    game,
-                    appid,
-                    item_name,
-                    type,
-                    amount
-                FROM inventory
-                WHERE appid = ?
-                ORDER BY item_name
-            """, (appid,))
-
-            rows = []
-
-            for r in cur.fetchall():
-                rows.append({
-                    "Spiel": r[0],
-                    "AppID": r[1],
-                    "Item": r[2],
-                    "Typ": r[3],
-                    "Anzahl": r[4] or 1,
-                })
-
-            return rows
-
-        finally:
-            con.close()
 
     def update_prices(self, task_id, game, force):
         rows = self.get_inventory_rows_for_game(game)
@@ -1269,23 +1489,79 @@ class App:
 
             return appid, item, data
 
+        self.run_price_worker(task_id, rows, worker, "Preisupdate")
+
+    # --------------------------------------------------------
+    # Verlauf separat aktualisieren
+    # --------------------------------------------------------
+
+    def start_update_history(self):
+        game = self.game_var.get()
+        task_id = self.new_task()
+
+        threading.Thread(
+            target=self.update_history,
+            args=(task_id, game),
+            daemon=True
+        ).start()
+
+    def update_history(self, task_id, game):
+        rows = self.get_inventory_rows_for_game(game)
+        total = len(rows)
+
+        if not rows:
+            self.set_status("Keine Items für Verlauf gefunden")
+            return
+
+        self.set_status(f"Starte Verlauf-Update: {total} Items")
+
+        def worker(row):
+            if self.is_stopped(task_id):
+                return None
+
+            appid = row["AppID"]
+            item = row["Item"]
+
+            data = get_market_page_data(appid, item)
+
+            if data:
+                return appid, item, data
+
+            return appid, item, {
+                "sell_price": "Kein Preis",
+                "buy_order": "Nicht verfügbar",
+                "sell_count": "",
+                "buy_count": "",
+                "price_number": 0.0,
+                "source": "none",
+                "trend_7d": None,
+                "trend_30d": None,
+                "history_points": 0,
+                "last_sale_time": None,
+                "history_entries": [],
+            }
+
+        self.run_price_worker(task_id, rows, worker, "Verlauf-Update")
+
+    def run_price_worker(self, task_id, rows, worker_func, label):
+        total = len(rows)
         done = 0
 
         executor = ThreadPoolExecutor(max_workers=MAX_PRICE_WORKERS)
         self.executor = executor
 
-        futures = [executor.submit(worker, row) for row in rows]
+        futures = [executor.submit(worker_func, row) for row in rows]
 
         con = db()
 
         try:
             for future in as_completed(futures):
                 if self.is_stopped(task_id):
-                    self.set_status("Preisupdate gestoppt")
+                    self.set_status(f"{label} gestoppt")
                     break
 
                 done += 1
-                self.set_status(f"Preisupdate {done}/{total}")
+                self.set_status(f"{label} {done}/{total}")
 
                 try:
                     result = future.result()
@@ -1301,41 +1577,7 @@ class App:
 
                 appid, item, data = result
 
-                con.execute("""
-                    DELETE FROM prices
-                    WHERE appid = ? AND item_name = ?
-                """, (
-                    appid,
-                    item
-                ))
-
-                con.execute("""
-                    INSERT INTO prices
-                    (
-                        appid,
-                        item_name,
-                        sell_price,
-                        buy_order,
-                        sell_count,
-                        buy_count,
-                        price_number,
-                        source,
-                        last_update
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    appid,
-                    item,
-                    data["sell_price"],
-                    data["buy_order"],
-                    data["sell_count"],
-                    data["buy_count"],
-                    data["price_number"],
-                    data["source"],
-                    time.time()
-                ))
-
-                con.commit()
+                self.save_price_and_history(con, appid, item, data)
 
         finally:
             con.close()
@@ -1349,11 +1591,92 @@ class App:
                 self.executor = None
 
         if self.is_stopped(task_id):
-            self.set_status("Preisupdate gestoppt")
+            self.set_status(f"{label} gestoppt")
             return
 
-        self.set_status("Preise aktualisiert")
+        self.set_status(f"{label} fertig")
         self.root.after(0, self.load_from_db)
+
+    def save_price_and_history(self, con, appid, item, data):
+        con.execute("""
+            DELETE FROM prices
+            WHERE appid = ? AND item_name = ?
+        """, (
+            appid,
+            item
+        ))
+
+        con.execute("""
+            INSERT INTO prices
+            (
+                appid,
+                item_name,
+                sell_price,
+                buy_order,
+                sell_count,
+                buy_count,
+                price_number,
+                source,
+                trend_7d,
+                trend_30d,
+                history_points,
+                last_sale_time,
+                last_update
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            appid,
+            item,
+            data.get("sell_price", "Kein Preis"),
+            data.get("buy_order", "Nicht verfügbar"),
+            data.get("sell_count", ""),
+            data.get("buy_count", ""),
+            data.get("price_number", 0.0),
+            data.get("source", "none"),
+            data.get("trend_7d"),
+            data.get("trend_30d"),
+            data.get("history_points", 0),
+            data.get("last_sale_time"),
+            time.time()
+        ))
+
+        history_entries = data.get("history_entries", [])
+
+        if history_entries:
+            con.execute("""
+                DELETE FROM price_history
+                WHERE appid = ? AND item_name = ?
+            """, (
+                appid,
+                item
+            ))
+
+            scanned_at = time.time()
+
+            con.executemany("""
+                INSERT INTO price_history
+                (
+                    appid,
+                    item_name,
+                    timestamp,
+                    price_median,
+                    purchases,
+                    scanned_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, [
+                (
+                    appid,
+                    item,
+                    int(t),
+                    float(price),
+                    int(purchases),
+                    scanned_at
+                )
+                for t, price, purchases in history_entries
+            ])
+
+        con.commit()
 
     # --------------------------------------------------------
     # DB laden / Tabelle
@@ -1367,6 +1690,26 @@ class App:
 
         try:
             cur = con.execute("""
+                WITH latest_inventory AS (
+                    SELECT *
+                    FROM inventory
+                    WHERE appid = ?
+                    AND id IN (
+                        SELECT MAX(id)
+                        FROM inventory
+                        WHERE appid = ?
+                        GROUP BY item_name
+                    )
+                ),
+                latest_prices AS (
+                    SELECT *
+                    FROM prices
+                    WHERE id IN (
+                        SELECT MAX(id)
+                        FROM prices
+                        GROUP BY appid, item_name
+                    )
+                )
                 SELECT
                     i.game,
                     i.item_name,
@@ -1379,14 +1722,17 @@ class App:
                     p.sell_count,
                     p.buy_count,
                     COALESCE(p.price_number, 0),
-                    COALESCE(p.source, '')
-                FROM inventory i
-                LEFT JOIN prices p
+                    COALESCE(p.source, ''),
+                    p.trend_7d,
+                    p.trend_30d,
+                    COALESCE(p.history_points, 0),
+                    p.last_sale_time
+                FROM latest_inventory i
+                LEFT JOIN latest_prices p
                     ON i.appid = p.appid
                     AND i.item_name = p.item_name
-                WHERE i.appid = ?
                 ORDER BY i.item_name
-            """, (appid,))
+            """, (appid, appid))
 
             self.rows = []
 
@@ -1410,6 +1756,10 @@ class App:
                     "BuyOrder": r[7] or "Nicht verfügbar",
                     "BuyAnzahl": r[9] or "",
                     "PreisZahl": price_number,
+                    "Trend7T": r[12],
+                    "Trend30T": r[13],
+                    "History": r[14] or 0,
+                    "LastSaleTime": r[15],
                     "Gesamt": total,
                 })
 
@@ -1420,22 +1770,23 @@ class App:
 
     def reload_table(self):
         self.tree.delete(*self.tree.get_children())
+        self.iid_icon_url.clear()
 
         q = self.search_var.get().lower().strip()
         total_value = 0.0
+        only_no_price = self.filter_no_price.get()
 
         for idx, row in enumerate(self.rows):
             if q and q not in row["Item"].lower() and q not in row["Typ"].lower():
                 continue
 
+            if only_no_price and row["PreisZahl"] > 0:
+                continue
+
             total_value += row["Gesamt"]
 
-            img = None
-
-            if SHOW_TABLE_ICONS:
-                img = self.get_image(row["IconURL"], ICON_SIZE)
-
             iid = str(idx)
+            self.iid_icon_url[iid] = row["IconURL"]
 
             values = (
                 row["Spiel"],
@@ -1445,26 +1796,92 @@ class App:
                 row["Preis"],
                 row["Quelle"],
                 row["Volumen"],
+                percent_text(row["Trend7T"]),
+                percent_text(row["Trend30T"]),
+                row["History"],
                 f"{row['Gesamt']:.2f}",
             )
-
-            insert_kwargs = {
-                "iid": iid,
-                "values": values,
-            }
-
-            if img:
-                insert_kwargs["image"] = img
 
             self.tree.insert(
                 "",
                 "end",
-                **insert_kwargs
+                iid=iid,
+                values=values
             )
+
+            if SHOW_TABLE_ICONS and row["IconURL"]:
+                self.load_table_thumbnail_async(iid, row["IconURL"])
 
         self.total_label.config(
             text=f"Gesamtwert: €{total_value:.2f}".replace(".", ",")
         )
+
+    def load_table_thumbnail_async(self, iid, url):
+        if not url:
+            return
+
+        key = f"{url}|table"
+
+        if key in self.table_thumb_cache:
+            try:
+                if self.tree.exists(iid) and self.iid_icon_url.get(iid) == url:
+                    self.tree.item(iid, image=self.table_thumb_cache[key])
+            except Exception:
+                pass
+            return
+
+        if key in self.table_thumb_jobs:
+            return
+
+        self.table_thumb_jobs.add(key)
+
+        def worker():
+            pil_image = None
+
+            try:
+                r = requests.get(
+                    url,
+                    headers=request_headers("de"),
+                    timeout=REQUEST_TIMEOUT
+                )
+                r.raise_for_status()
+
+                img = Image.open(BytesIO(r.content)).convert("RGBA")
+                img.thumbnail((ICON_SIZE, ICON_SIZE))
+
+                canvas = Image.new("RGBA", (ICON_SIZE, ICON_SIZE), (0, 0, 0, 0))
+
+                x = (ICON_SIZE - img.width) // 2
+                y = (ICON_SIZE - img.height) // 2
+
+                canvas.paste(img, (x, y), img)
+                pil_image = canvas
+
+            except Exception:
+                pil_image = None
+
+            def finish():
+                self.table_thumb_jobs.discard(key)
+
+                if pil_image is None:
+                    return
+
+                try:
+                    photo = ImageTk.PhotoImage(pil_image)
+                    self.table_thumb_cache[key] = photo
+
+                    if self.tree.exists(iid) and self.iid_icon_url.get(iid) == url:
+                        self.tree.item(iid, image=photo)
+
+                except Exception:
+                    pass
+
+            self.root.after(0, finish)
+
+        try:
+            self.thumb_executor.submit(worker)
+        except Exception:
+            pass
 
     # --------------------------------------------------------
     # Sortierung / Filter
@@ -1473,18 +1890,22 @@ class App:
     def sort_by_column(self, col):
         reverse = self.sort_state.get(col, False)
 
-        numeric = {"Anzahl", "Volumen", "Gesamt", "Preis"}
+        numeric = {"Anzahl", "Volumen", "Gesamt", "Preis", "Trend7T", "Trend30T", "History"}
 
         if col in numeric:
             def key_func(x):
                 if col == "Gesamt":
                     return float(x.get("Gesamt", 0))
-
                 if col == "Preis":
                     return parse_price(x.get("Preis", "0"))
-
                 if col == "Volumen":
                     return clean_int(x.get("Volumen", "0"))
+                if col == "Trend7T":
+                    return float(x.get("Trend7T") or 0)
+                if col == "Trend30T":
+                    return float(x.get("Trend30T") or 0)
+                if col == "History":
+                    return int(x.get("History") or 0)
 
                 return clean_int(x.get(col, "0"))
         else:
@@ -1534,6 +1955,9 @@ class App:
         self.detail_text.insert("end", f"Preis: {row['Preis']}\n")
         self.detail_text.insert("end", f"Quelle: {row['Quelle']}\n")
         self.detail_text.insert("end", f"Volumen: {row['Volumen']}\n")
+        self.detail_text.insert("end", f"Trend 7 Tage: {percent_text(row['Trend7T'])}\n")
+        self.detail_text.insert("end", f"Trend 30 Tage: {percent_text(row['Trend30T'])}\n")
+        self.detail_text.insert("end", f"History-Punkte: {row['History']}\n")
         self.detail_text.insert(
             "end",
             f"Gesamt: €{row['Gesamt']:.2f}\n\n".replace(".", ",")
@@ -1593,7 +2017,9 @@ class App:
             f"{row['Typ']}\n\n"
             f"Preis: {row['Preis']}\n"
             f"Quelle: {row['Quelle']}\n"
-            f"Volumen: {row['Volumen']}"
+            f"Volumen: {row['Volumen']}\n"
+            f"7T: {percent_text(row['Trend7T'])}\n"
+            f"30T: {percent_text(row['Trend30T'])}"
         )
 
         tk.Label(
@@ -1644,6 +2070,45 @@ class App:
         messagebox.showinfo(
             "Export",
             "Gespeichert als steam_inventory_manager_export.csv"
+        )
+
+    def export_history_csv(self):
+        game = self.game_var.get()
+        appid = APPS[game]["appid"]
+
+        con = db()
+
+        try:
+            df = pd.read_sql_query("""
+                SELECT
+                    appid,
+                    item_name,
+                    datetime(timestamp, 'unixepoch') AS datum,
+                    price_median,
+                    purchases,
+                    datetime(scanned_at, 'unixepoch') AS gescannt
+                FROM price_history
+                WHERE appid = ?
+                ORDER BY item_name, timestamp
+            """, con, params=(appid,))
+        finally:
+            con.close()
+
+        if df.empty:
+            messagebox.showinfo("Hinweis", "Keine History-Daten vorhanden.")
+            return
+
+        filename = f"steam_price_history_{game.replace(' ', '_')}.csv"
+
+        df.to_csv(
+            filename,
+            index=False,
+            encoding="utf-8-sig"
+        )
+
+        messagebox.showinfo(
+            "Export",
+            f"Gespeichert als {filename}"
         )
 
 
